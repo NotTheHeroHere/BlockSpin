@@ -54,8 +54,12 @@ function tweenToClosestATM()
     local list = {}
     for i,v in workspace.Map.Props:GetChildren() do
         if v.Name == "ATM" then
-            if v:GetAttribute("disabled") == false then
-                list[#list+1] = v
+            for ii,vv in v:GetDescendants() do
+                if vv.Name == "Screen" and vv:IsA("SurfaceGui") then
+                    if vv.Enabled == false then
+                        list[#list+1] = v
+                    end
+                end
             end
         end
     end
@@ -63,6 +67,7 @@ function tweenToClosestATM()
     local index = 0
     for i,v in pairs(list) do
         if (v:GetPivot().Position - hrp.Position).Magnitude < smallest then
+            print((v:GetPivot().Position - hrp.Position).Magnitude)
             smallest = (v:GetPivot().Position - hrp.Position).Magnitude
             index = i
         end

@@ -1,69 +1,124 @@
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
 
+local version = "1.1"
+
 local doAutofarm = false
 local targetHeight = 248
 local targetSpeed = 20
 local baseplateHeight = 253
+local tpTweenYPos = 400
 local tweenYPos = 20
-
+local origStamina = game.Players.LocalPlayer:GetAttribute("MaxStamina")
+local antiAFK = false
+local autoHackMinigameEnabled = false
 pcall(function() workspace.Map.MapHitboxes:Destroy() end)
 local s,e = pcall(function() workspace.Map.Tiles.GasStationTile.Quick11.Interior.ShelfStockingJob.PickUpBox.ProximityPrompt.RequiresLineOfSight = false end)
 if not s then print(e) end
-local Window = Library.CreateLib("NotTheHeroHeres BlockFlip script", "DarkTheme")
+local Window = Library.CreateLib("NotTheHeroHeres BlockFlip script V"..version, "DarkTheme")
 local Tab = Window:NewTab("Main")
 local devTab = Window:NewTab("Beta")
 local devSec = devTab:NewSection("Dont touch this unless you know what you are doing!")
 local Section = Tab:NewSection("Main")
 local infoTab = Window:NewTab("Information")
 local infoSec = infoTab:NewSection("Information")
+function tpTween(target:CFrame, ypos:number)
+    local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
+    local tween1 = game.TweenService:Create(game.Players.LocalPlayer.Character.HumanoidRootPart, TweenInfo.new((Vector3.new(hrp.CFrame.X, ypos, hrp.CFrame.Z) - hrp.Position).Magnitude/targetSpeed, Enum.EasingStyle.Linear), {CFrame = CFrame.new(hrp.CFrame.X, ypos, hrp.CFrame.Z)})
+    tween1:Play()
+    tween1.Completed:Wait()
+    local tween2 = game.TweenService:Create(game.Players.LocalPlayer.Character.HumanoidRootPart, TweenInfo.new((Vector3.new(target.X, ypos, target.Z) - hrp.Position).Magnitude/targetSpeed, Enum.EasingStyle.Linear), {CFrame = CFrame.new(target.X, ypos, target.Z)})
+    task.spawn(function()
+        repeat
+            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            task.wait()
+        until tween2.PlaybackState == Enum.PlaybackState.Completed
+    end)
+    tween2:Play()
+    tween2.Completed:Wait()
+    local tween3 = game.TweenService:Create(game.Players.LocalPlayer.Character.HumanoidRootPart, TweenInfo.new((target.Position - hrp.Position).Magnitude/targetSpeed, Enum.EasingStyle.Linear), {CFrame = target})
+    tween3:Play()
+    tween3.Completed:Wait()
+end
+
+task.spawn(function()
+    game.Players.LocalPlayer.Idled:Connect(function()
+        if antiAFK then
+            game:GetService("VirtualUser"):CaptureController()
+            game:GetService("VirtualUser"):ClickButton2(Vector2.new(0, 0))
+        end
+    end)
+end)
+
+function tweenToClosestATM()
+    local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
+    local list = {}
+    for i,v in workspace.Map.Props:GetChildren() do
+        if v.Name == "ATM" then
+            if v:GetAttribute("disabled") == false then
+                list[#list+1] = v
+            end
+        end
+    end
+    local smallest = math.huge
+    local index = 0
+    for i,v in pairs(list) do
+        if (v:GetPivot().Position - hrp.Position).Magnitude < smallest then
+            smallest = (v:GetPivot().Position - hrp.Position).Magnitude
+            index = i
+        end
+    end
+    tpTween(list[index]:GetPivot(), 225)
+end
+
+function autoHackMinigame()
+    local mainFrame = game.Players.LocalPlayer.PlayerGui.SliderMinigame.SliderMinigameFrame
+    local bar = mainFrame.Bar
+    local target = bar.Target
+    local needle = bar.Needle
+    while autoHackMinigameEnabled and task.wait() do
+        if mainFrame.Visible == true then
+            local absoluteBarPos = target.AbsolutePosition
+            local absoluteBarSize = target.AbsoluteSize
+            local maxNeedleClickPosition = absoluteBarPos.X + absoluteBarSize.X
+            local minNeedleClickPosition = absoluteBarPos.X
+            if needle.AbsolutePosition.X > minNeedleClickPosition and needle.AbsolutePosition.X < maxNeedleClickPosition then
+                mouse1click(50, 50)
+            end
+        end
+    end
+end
+
 infoSec:NewLabel("In order for auto farm to work, your executor: ")
 infoSec:NewLabel("* Must have fireproximityprompt. ")
+
 Section:NewToggle("Auto farm (need shelf stocker job!)", "Enables autofarm", function(state)
     doAutofarm = state
     if doAutofarm then
         task.spawn(autofarm)
     end
 end)
-Section:NewButton("Move to Store", "Moves you to the store", function()
-    local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
-    local tween1 = game.TweenService:Create(game.Players.LocalPlayer.Character.HumanoidRootPart, TweenInfo.new((Vector3.new(hrp.CFrame.X, hrp.CFrame.Y + tweenYPos, hrp.CFrame.Z) - (hrp.Position)).Magnitude/targetSpeed, Enum.EasingStyle.Linear), {CFrame = CFrame.new(hrp.CFrame.X, hrp.CFrame.Y + tweenYPos, hrp.CFrame.Z)})
-    tween1:Play()
-    tween1.Completed:Wait()
-    local tween = game.TweenService:Create(game.Players.LocalPlayer.Character.HumanoidRootPart, TweenInfo.new(getTweenTime(workspace.Map.Tiles.GasStationTile.Quick11.Interior.Quick11Beacon.TouchPart), Enum.EasingStyle.Linear), {CFrame = workspace.Map.Tiles.GasStationTile.Quick11.Interior.Quick11Beacon.TouchPart.CFrame})
-    task.spawn(function()
-        repeat
-            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-            task.wait()
-        until tween.PlaybackState == Enum.PlaybackState.Completed
-    end)
-    tween:Play()
-    tween.Completed:Wait()
+
+Section:NewToggle("Auto hack minigames", "Auto hacks minigames", function(state)
+    autoHackMinigameEnabled = state
+    if autoHackMinigameEnabled then
+        task.spawn(function()
+            autoHackMinigame()
+        end)
+    end
 end)
 
-Section:NewButton("Move to Illegal guy", "Moves you to the illegal guy", function()
-    local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
-    local tween1 = game.TweenService:Create(game.Players.LocalPlayer.Character.HumanoidRootPart, TweenInfo.new((Vector3.new(hrp.CFrame.X, hrp.CFrame.Y + tweenYPos, hrp.CFrame.Z) - (hrp.Position)).Magnitude/targetSpeed, Enum.EasingStyle.Linear), {CFrame = CFrame.new(hrp.CFrame.X, hrp.CFrame.Y + tweenYPos, hrp.CFrame.Z)})
-    tween1:Play()
-    tween1.Completed:Wait()
-    local tween = game.TweenService:Create(game.Players.LocalPlayer.Character.HumanoidRootPart, TweenInfo.new(getTweenTime(workspace.Map.NPCs.AlleyWayGuy.HumanoidRootPart), Enum.EasingStyle.Linear), {CFrame = workspace.Map.NPCs.AlleyWayGuy.HumanoidRootPart.CFrame})
-    task.spawn(function()
-        repeat
-            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-            task.wait()
-        until tween.PlaybackState == Enum.PlaybackState.Completed
-    end)
-    tween:Play()
-    tween.Completed:Wait()
+Section:NewToggle("Anti AFK", "Toggles anti AFK", function(state)
+    antiAFK = state
 end)
 
-
-
-
-
---workspace.Map.NPCs.AlleyWayGuy.HumanoidRootPart
-Section:NewButton("Safe mode (bugged)", "bugged, but here just in case", function()
-    require(game.ReplicatedStorage.Modules.Core.Net).send("request_respawn")
+Section:NewToggle("Infinite Stamina", "Sets your stamina to 1,000,000,000", function(state)
+    if state then
+        game.Players.LocalPlayer:SetAttribute("Stamina", 1000000000)
+    else
+        game.Players.LocalPlayer:SetAttribute("Stamina", origStamina)
+    end
 end)
+
 Section:NewSlider("Speed", "Tween speed, lower this if you get lagged back", 24, 16, function(state)
     targetSpeed = state
 end)
@@ -71,26 +126,26 @@ Section:NewButton("Move to house", "Tweens you to your house", function()
     for i,v in workspace.Map.Tiles:GetDescendants() do
         if v:IsA("ObjectValue") and v.Name == "owner" then
             if tostring(v.Value) == game.Players.LocalPlayer.Name then
-                local hrp = game.Players.LocalPlayer.Character.HumanoidRootPart
-                local tween1 = game.TweenService:Create(game.Players.LocalPlayer.Character.HumanoidRootPart, TweenInfo.new((Vector3.new(hrp.CFrame.X, hrp.CFrame.Y + tweenYPos, hrp.CFrame.Z) - (hrp.Position)).Magnitude/targetSpeed, Enum.EasingStyle.Linear), {CFrame = CFrame.new(hrp.CFrame.X, hrp.CFrame.Y + tweenYPos, hrp.CFrame.Z)})
-                tween1:Play()
-                tween1.Completed:Wait()
-                local tween = game.TweenService:Create(game.Players.LocalPlayer.Character.HumanoidRootPart, TweenInfo.new(getTweenTime(v.Parent.Exterior.OwnerDisplay), Enum.EasingStyle.Linear), {CFrame = v.Parent.Exterior.OwnerDisplay.CFrame})
-                tween:Play()
-                task.spawn(function()
-                    repeat
-                        hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                        task.wait()
-                    until tween.PlaybackState == Enum.PlaybackState.Completed
-                end)
+                tpTween(v.Parent.Exterior.OwnerDisplay.CFrame, 225)
             end
         end
     end
 end)
+
+Section:NewButton("Move to Illegal guy", "Moves you to the illegal guy", function()
+    tpTween(workspace.Map.NPCs.AlleyWayGuy.HumanoidRootPart.CFrame, 225)
+end)
+Section:NewButton("Move to closest ATM", "Moves you to the illegal guy", function()
+    tweenToClosestATM()
+end)
+Section:NewButton("Move to Store", "Moves you to the store", function()
+    tpTween(workspace.Map.Tiles.GasStationTile.Quick11.Interior.Quick11Beacon.TouchPart.CFrame, 225)
+end)
+
 devSec:NewSlider("Baseplate Height", "(Only change if you know what you are doing)!", 255, 251, function(state)
     baseplateHeight = state
 end)
-devSec:NewSlider("Tween Height", "(Only change if you know what you are doing)!", 50, 5, function(state)
+devSec:NewSlider("Tween Height", "(Only change if you know what you are doing)!", 100, 5, function(state)
     tweenYPos = state
 end)
 devSec:NewSlider("Experimental Speed", "Tween speed, with a higher max speed, this might set you back even if you have good internet", 30, 16, function(state)

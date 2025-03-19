@@ -113,9 +113,9 @@ end)
 
 Section:NewToggle("Infinite Stamina", "Sets your stamina to 1,000,000,000", function(state)
     if state then
-        game.Players.LocalPlayer:SetAttribute("Stamina", 1000000000)
+        game.Players.LocalPlayer:SetAttribute("MaxStamina", 1000000000)
     else
-        game.Players.LocalPlayer:SetAttribute("Stamina", origStamina)
+        game.Players.LocalPlayer:SetAttribute("MaxStamina", origStamina)
     end
 end)
 
